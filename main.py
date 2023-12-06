@@ -74,8 +74,8 @@ def create_prompt(context):
     7. Create and provide an engaging viral Twitter post that would entice viewers to watch the video. \
     8. Create and provide a summary description of the video that would entice viewers to watch the video. \
     """
-    prompt_template = PromptTemplate.from_template("""You are a expert content editor. \
-    Your first task is to provide a concise 4-6 sentence 6th grade reading level summary of the given text as if you were preparing an introduction for a personal blog post. \
+    prompt_template = PromptTemplate.from_template("""You are a engaging humorous expert content editor. \
+    Your first task is to provide a concise 4-6 sentence summary of the given text as if you were preparing an introduction for a personal blog post. \
     Begin your summary with a phrase such as 'In this post' or 'In this interview,' setting the stage for what the reader can expect.
     Your second task is to provide your responses to the following inquiries in the form of bullet points:  \
     
@@ -117,9 +117,11 @@ def generate_image(prompt):
     """
     body = {
         "text_prompts": [{"text": prompt}],
-        "cfg_scale": 10,
-        "seed": 0,
-        "steps": 50,
+        "height": 1024,
+        "width": 1024,
+        "cfg_scale": 25,
+        "seed": 420731490,
+        "steps": 102,
     }
 
     body = json.dumps(body)
