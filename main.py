@@ -5,6 +5,7 @@ import base64
 import io
 import json
 import re
+import logging
 import boto3
 from random import randint
 
@@ -22,6 +23,12 @@ from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain.chat_models import BedrockChat
 
+
+logging.basicConfig(filename="app.log", filemode='w', format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO) 
+logger = logging.getLogger(__name__)
+
+
+logger.info('Starting analysis')
 
 # Create title and header
 st.set_page_config(page_title="YouTube Analysis", page_icon="🤖", layout="wide")
@@ -69,13 +76,10 @@ def create_prompt(context):
     3. Thumbnail Design: Describe the elements of an eye-catching thumbnail that would compel viewers to click. \
     4. Content Enhancement: Offer specific suggestions on how the content could be improved for viewer engagement and retention. \
     5. Viral Potential Segment: Identify the best section that might have the potential to be engaging or entertaining for a short-form viral video based on factors like humor, uniqueness, relatability, or other notable elements. \
-    Provide the text section and explain why. \
-    6. Create and provide an engaging viral LinkedIn post that would entice viewers to watch the video. \
-    7. Create and provide an engaging viral Twitter post that would entice viewers to watch the video. \
-    8. Create and provide a summary description of the video that would entice viewers to watch the video. \
+    Provide the entire text section identified and explain why. \
     """
     prompt_template = PromptTemplate.from_template("""You are a engaging humorous expert content editor. \
-    Your first task is to provide a concise 4-6 sentence summary of the given text as if you were preparing an introduction for a personal blog post. \
+    Your first task is to provide a concise 4-6 sentence  summary of the given text as if you were preparing an introduction for a personal blog post. \
     Begin your summary with a phrase such as 'In this post' or 'In this interview,' setting the stage for what the reader can expect.
     Your second task is to provide your responses to the following inquiries in the form of bullet points:  \
     
@@ -167,7 +171,8 @@ def load_chain():
         model_id="anthropic.claude-v2:1", 
         model_kwargs={
             "temperature": 1,
-            "max_tokens_to_sample": 4096
+            "max_tokens_to_sample": 4096,
+            "top_k": 500
         },
         verbose=True
     )
@@ -246,14 +251,16 @@ if st.session_state["previous"]:
             message(generated_message, key=str(i))
         # Regular expression to capture content between 'Thumbnail Design' and 'Content Enhancement'
         pattern = r"Thumbnail Design:(.*?)Content Enhancement:"
-
-        # Search for the pattern in the text
-        match = re.search(pattern, output, re.DOTALL)
+        try: 
+            # Search for the pattern in the text
+            match = re.search(pattern, output, re.DOTALL)
+        except NameError as e:
+            logging.error(f"Error: {e}", exc_info=True)
+            match = None
 
         if match:
             result = match.group(1).strip()
-            print(result)
-            generated_thumbnail = base64_to_pil(generate_image(f"Create a engaging YouTube Thumbnail based on: {result}"))
+            generated_thumbnail = base64_to_pil(generate_image(f"Create a colorful engaging YouTube Thumbnail without text based on this design: {result}"))
             st.image(generated_thumbnail)
         else:
             print("No match found.")

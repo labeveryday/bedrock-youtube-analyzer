@@ -47,7 +47,7 @@ A step-by-step series of examples that tell you how to get a development environ
 
 5. **Run the Streamlit application**
     ```sh
-    streamlit run app.py
+    streamlit run main.py
     ```
 
 ### Usage
