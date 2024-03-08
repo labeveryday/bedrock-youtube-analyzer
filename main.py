@@ -18,10 +18,10 @@ from PIL import Image
 
 # Used to conversation with LLM
 from langchain.prompts import PromptTemplate
-from langchain.document_loaders import YoutubeLoader
+from langchain_community.document_loaders import YoutubeLoader
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
-from langchain.chat_models import BedrockChat
+from langchain_community.chat_models import BedrockChat
 
 
 logging.basicConfig(filename="app.log", filemode='w', format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO) 
@@ -38,7 +38,7 @@ st.subheader('I am here to help you improve your :red[YouTube] channel:')
 # Define bedrock
 bedrock = boto3.client(
     service_name="bedrock-runtime",
-    region_name="us-east-1"
+    region_name="us-west-2"
 )
 
 
@@ -71,12 +71,12 @@ def create_prompt(context):
         prompt (str):        The prompt template with the video transcript.
     """
     questions = """
-    1. Engaging Title: Propose a catchy and appealing title that encapsulates the essence of the content. \
+    1. Engaging Title: Propose a list catchy and appealing titles that encapsulates the essence of the content. \
     2. SEO Tags: Identify a list of SEO-friendly tags that are relevant to the content and could improve its searchability. \
-    3. Thumbnail Design: Describe the elements of an eye-catching thumbnail that would compel viewers to click. \
+    3. Thumbnail Prompt: Generate a prompt that describes the elements of an eye-catching thumbnail that would compel viewers to click. \
     4. Content Enhancement: Offer specific suggestions on how the content could be improved for viewer engagement and retention. \
-    5. Viral Potential Segment: Identify the best section that might have the potential to be engaging or entertaining for a short-form viral video based on factors like humor, uniqueness, relatability, or other notable elements. \
-    Provide the entire text section identified and explain why. \
+    5. Viral Segment: Identify and provide best section that might have the potential to be engaging or entertaining for a short-form viral video based on factors like humor, uniqueness, relatability, or other notable elements. \
+    6. Viral Segment Explanation: After you provide the segment, explain why. \
     """
     prompt_template = PromptTemplate.from_template("""You are a engaging humorous expert content editor. \
     Your first task is to provide a concise 4-6 sentence  summary of the given text as if you were preparing an introduction for a personal blog post. \
@@ -87,7 +87,7 @@ def create_prompt(context):
 
     Provide Summary Here: 
     
-    Answer Inquiries Here: {questions}
+    Answer Tasks Here: {questions}
     """
     )
     prompt = prompt_template.format(context=context, questions=questions)
@@ -120,17 +120,21 @@ def generate_image(prompt):
         image: base64 string of image
     """
     body = {
-        "text_prompts": [{"text": prompt}],
-        "height": 1024,
-        "width": 1024,
-        "cfg_scale": 25,
-        "seed": 420731490,
-        "steps": 102,
+        "taskType": "TEXT_IMAGE",
+        "textToImageParams": {"text": prompt},
+        "imageGenerationConfig": {
+                                    "numberOfImages": 1,
+                                    "quality": "premium",
+                                    "height": 1024,
+                                    "width": 1024,
+                                    "cfgScale": 8.0,
+                                    "seed": 0
+                                }
     }
 
     body = json.dumps(body)
 
-    modelId = "stability.stable-diffusion-xl-v1"
+    modelId = "amazon.titan-image-generator-v1"
     accept = "application/json"
     contentType = "application/json"
 
@@ -139,7 +143,7 @@ def generate_image(prompt):
     )
     response_body = json.loads(response.get("body").read())
 
-    results = response_body.get("artifacts")[0].get("base64")
+    results = response_body.get("images")[0]
     return results
 
 # Turn base64 string to image with PIL
@@ -168,11 +172,10 @@ def load_chain():
         chain (ConversationChain):      The LLM and the memory.
     """
     llm = BedrockChat(
-        model_id="anthropic.claude-v2:1", 
+        model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+        
         model_kwargs={
-            "temperature": 1,
-            "max_tokens_to_sample": 4096,
-            "top_k": 500
+            "temperature": 1, 
         },
         verbose=True
     )
