@@ -7,6 +7,7 @@ import json
 import re
 import logging
 import boto3
+from io import StringIO
 from random import randint
 
 # Used to display the UI components
@@ -120,21 +121,17 @@ def generate_image(prompt):
         image: base64 string of image
     """
     body = {
-        "taskType": "TEXT_IMAGE",
-        "textToImageParams": {"text": prompt},
-        "imageGenerationConfig": {
-                                    "numberOfImages": 1,
-                                    "quality": "premium",
-                                    "height": 1024,
-                                    "width": 1024,
-                                    "cfgScale": 8.0,
-                                    "seed": 0
-                                }
+        "text_prompts": [{"text": prompt}],
+        "height": 1024,
+        "width": 1024,
+        "cfg_scale": 25,
+        "seed": 420731490,
+        "steps": 102,
     }
 
     body = json.dumps(body)
 
-    modelId = "amazon.titan-image-generator-v1"
+    modelId = "stability.stable-diffusion-xl-v1"
     accept = "application/json"
     contentType = "application/json"
 
@@ -194,6 +191,8 @@ if "previous" not in st.session_state:
     st.session_state["previous"] = []
 if "unique_id" not in st.session_state:
     st.session_state["unique_id"] = str(randint(1000, 10000000))
+if "unique_id_2" not in st.session_state:
+    st.session_state["unique_id_2"] = str(randint(1000, 10000000))
 
 # Sidebar to clear the chat
 st.sidebar.title("Sidebar")
@@ -201,12 +200,16 @@ clear_button = st.sidebar.button("Clear Conversation", key="clear")
 
 # This is a hack to clear the chat
 if clear_button:
-    st.session_state.update({"generated": [], "previous": [], "unique_id": str(randint(1000, 10000000))})
+    st.session_state.update({"generated": [], "previous": [], "unique_id": str(randint(1000, 10000000)), "unique_id_2": str(randint(1000, 10000000))})
     chain.memory.clear()
 
 # Gets video transcript from url
 url = st.sidebar.text_input("Insert YouTube URL", key=st.session_state["unique_id"])
-submitted_button = st.sidebar.button("Submit", key=st.session_state["unique_id"] + "submit")      
+submitted_button = st.sidebar.button("Submit", key=st.session_state["unique_id"] + "submit")   
+# Gets file content from uploaded file
+uploaded_file = st.sidebar.file_uploader("Upload a file (txt, doc, or pdf)", type=["txt", "docx", "pdf"], key=st.session_state["unique_id_2"])
+file_submitted_button = st.sidebar.button("Submit", key=st.session_state["unique_id_2"] + "submit")   
+
 
 # Container to display previous conversations
 response_container = st.container()
@@ -214,8 +217,9 @@ response_container = st.container()
 container = st.container()
 
 # Creates a form with a text area for user input and a submit button.
+# Creates a form with a text area for user input and a submit button.
 with container:
-    with st.form(key="youtub_app", clear_on_submit=True):
+    with st.form(key="text_app", clear_on_submit=True):
         user_input = st.text_area("You:", key="input", height=100)
         submit_button = st.form_submit_button(label="Send")
 
@@ -224,7 +228,16 @@ with container:
         output = chain(user_input)["response"]
         st.session_state["previous"].append(user_input)
         st.session_state["generated"].append(output)
-    
+
+    # When a file is uploaded and the submit button is clicked
+    elif uploaded_file is not None and file_submitted_button is True:
+        # To convert to a string based IO:
+        file_content = StringIO(uploaded_file.getvalue().decode("utf-8"))
+        prompt = create_prompt(file_content.read())
+        output = chain(prompt)["response"]
+        st.session_state["previous"].append("File received. Currently reviewing...")
+        st.session_state["generated"].append(output)
+
     # When user input is received and submit button gets the video transcript from the URL, converts the contents to a text file, and stores the path to the transcript file.
     elif user_input is not None and submitted_button is True:
         contents = get_video_transcript(url)
@@ -240,9 +253,10 @@ with container:
                 )
         # Creates a prompt from the video transcript and sends it to the LLM
         prompt = create_prompt(contents)
-        output = chain(prompt)["response"]    
+        output = chain(prompt)["response"]
         st.session_state["previous"].append("Video received. Currently reviewing...")
         st.session_state["generated"].append(output)
+
 
     history = chain.memory.load_memory_variables({})["history"]
 
@@ -253,7 +267,7 @@ if st.session_state["previous"]:
             message(previous_message, is_user=True, key=f"{i}_user")
             message(generated_message, key=str(i))
         # Regular expression to capture content between 'Thumbnail Design' and 'Content Enhancement'
-        pattern = r"Thumbnail Design:(.*?)Content Enhancement:"
+        pattern = r"Thumbnail Prompt: (.*?)Content Enhancement"
         try: 
             # Search for the pattern in the text
             match = re.search(pattern, output, re.DOTALL)
