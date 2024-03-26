@@ -38,8 +38,7 @@ st.subheader('I am here to help you improve your :red[YouTube] channel:')
 
 # Define bedrock
 bedrock = boto3.client(
-    service_name="bedrock-runtime",
-    region_name="us-west-2"
+    service_name="bedrock-runtime"
 )
 
 
@@ -110,7 +109,7 @@ def convert_to_text_file(transcript):
     return file_path
 
 # Bedrock api call to stable diffusion
-def generate_image(prompt):
+def generate_image(prompt: str, width: int=1024, height: int=1024, number_of_images: int=1):
     """
     Purpose:
         Uses Bedrock API to generate an Image
@@ -121,17 +120,23 @@ def generate_image(prompt):
         image: base64 string of image
     """
     body = {
-        "text_prompts": [{"text": prompt}],
-        "height": 1024,
-        "width": 1024,
-        "cfg_scale": 25,
-        "seed": 420731490,
-        "steps": 102,
-    }
+        "textToImageParams": {
+            "text": prompt},
+            "taskType": "TEXT_IMAGE",
+            "imageGenerationConfig": {
+                "cfgScale": 8,
+                "seed":0,
+                "quality":
+                "standard",
+                "width": width,
+                "height": height,
+                "numberOfImages": number_of_images
+                }
+            }
 
     body = json.dumps(body)
 
-    modelId = "stability.stable-diffusion-xl-v1"
+    modelId = "amazon.titan-image-generator-v1"
     accept = "application/json"
     contentType = "application/json"
 
@@ -153,7 +158,6 @@ def base64_to_pil(base64_string):
     Return:
         image: PIL image
     """
-
 
     imgdata = base64.b64decode(base64_string)
     image = Image.open(io.BytesIO(imgdata))
@@ -267,7 +271,7 @@ if st.session_state["previous"]:
             message(previous_message, is_user=True, key=f"{i}_user")
             message(generated_message, key=str(i))
         # Regular expression to capture content between 'Thumbnail Design' and 'Content Enhancement'
-        pattern = r"Thumbnail Prompt: (.*?)Content Enhancement"
+        pattern = r"Thumbnail Prompt:(.*?)Content Enhancement:"
         try: 
             # Search for the pattern in the text
             match = re.search(pattern, output, re.DOTALL)
